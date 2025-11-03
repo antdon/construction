@@ -16,10 +16,13 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(ftxui)
 
+add_library(gitInteraction STATIC
+	src/gitInteraction.cpp
+)
+
 add_executable(construction
 	src/main.cpp
 )
-
 
 target_include_directories(construction PRIVATE
         ${PROJECT_SOURCE_DIR}/include
@@ -29,6 +32,7 @@ target_link_libraries(construction PRIVATE
         ftxui::screen
 	ftxui::dom
 	ftxui::component
+	gitInteraction
 )
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
