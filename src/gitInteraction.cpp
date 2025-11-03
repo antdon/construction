@@ -10,11 +10,25 @@
 #include <cstdio>
 #include <memory>
 
-std::optional<std::string> getHomeDir() {
-    const char* homeDir = std::getenv("HOME");
-    if (!homeDir) 
-	homeDir = std::getenv("USERPROFILE");
-    return homeDir ? std::make_optional(std::string(homeDir)) : std::nullopt;
+namespace {
+    std::optional<std::string> getHomeDir() {
+	const char* homeDir = std::getenv("HOME");
+	if (!homeDir) 
+	    homeDir = std::getenv("USERPROFILE");
+	return homeDir ? std::make_optional(std::string(homeDir)) : std::nullopt;
+    }
+
+    std::optional<std::string> executeInDirectory(const std::filesystem::path& directory, const std::function<std::optional<std::string>()> f) {
+	// TODO: change this to a directory guard using RAII.
+	// currently this risks f failing and the path not being changed back
+	// if you put this in a destructor that will mean it is certainly changed back
+
+	auto original = std::filesystem::current_path();
+	std::filesystem::current_path(directory);
+	auto output = f();
+	std::filesystem::current_path(original);
+	return output;
+    }
 }
 
 std::optional<std::vector<std::filesystem::directory_entry>> gitInteraction::getBaseDirs(const std::string& base) {
@@ -28,18 +42,6 @@ std::optional<std::vector<std::filesystem::directory_entry>> gitInteraction::get
 	  return path.path().filename().string().starts_with(base);
       }) | std::ranges::to<std::vector>();
   });
-}
-
-std::optional<std::string> executeInDirectory(const std::filesystem::path& directory, const std::function<std::optional<std::string>()> f) {
-  // TODO: change this to a directory guard using RAII.
-  // currently this risks f failing and the path not being changed back
-  // if you put this in a destructor that will mean it is certainly changed back
-
-    auto original = std::filesystem::current_path();
-    std::filesystem::current_path(directory);
-    auto output = f();
-    std::filesystem::current_path(original);
-    return output;
 }
 
 std::vector<std::string> gitInteraction::getCurrentBranches(
