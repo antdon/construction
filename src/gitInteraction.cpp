@@ -64,6 +64,6 @@ std::vector<std::string> gitInteraction::getCurrentBranches(
 	    return executeInDirectory(dir, [&getBranch]{ return getBranch(); });
 	})
 	| std::views::filter([](const auto& optional){ return optional.has_value(); })
-	| std::views::transform([](const auto& optional) { return *optional; })
+	| std::views::transform([](const auto& optional) { return optional.value(); })
 	| std::ranges::to<std::vector<std::string>>();
 }
