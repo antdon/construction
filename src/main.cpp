@@ -9,6 +9,8 @@
 #include <vector>
 #include <ranges>
 #include <functional>
+#include <cstdio>
+#include <memory>
 
 namespace ftx = ftxui;
 
@@ -17,7 +19,7 @@ namespace ftx = ftxui;
 // directory base name, 3 commands we can run in that directory
 
 const std::string base = "TikTok";
-const std::string gitCommand = "git branch --show_current";
+const std::string gitCommand = "git branch --show";
 
 std::optional<std::string> getHomeDir() {
     const char* homeDir = std::getenv("HOME");
@@ -39,7 +41,7 @@ std::optional<std::vector<std::filesystem::directory_entry>> getBaseDirs(const s
   });
 }
 
-std::string executeInDirectory(const std::filesystem::path& directory, const std::function<std::string()> f) {
+std::optional<std::string> executeInDirectory(const std::filesystem::path& directory, const std::function<std::optional<std::string>()> f) {
   // TODO: change this to a directory guard using RAII.
   // currently this risks f failing and the path not being changed back
   // if you put this in a destructor that will mean it is certainly changed back
@@ -53,11 +55,39 @@ std::string executeInDirectory(const std::filesystem::path& directory, const std
 
 std::vector<std::string> getCurrentBranches(
     const std::vector<std::filesystem::directory_entry> &directories) {
-
-    
+    auto getBranch = []() -> std::optional<std::string> {
+	auto pipe = popen(gitCommand.c_str(), "r");
+        if (!pipe) {
+	    return std::nullopt;
+        }
+	auto pipe_wrapper = std::unique_ptr<FILE, decltype(&pclose)>(pipe, pclose);
+        std::string result;
+	char buffer[128];
+        while (fgets(buffer, sizeof(buffer), pipe_wrapper.get()) != nullptr) {
+	    result += buffer;
+        }
+	return result;
+    };
+    return directories
+	| std::views::transform([&getBranch](const auto &dir) {
+	    return executeInDirectory(dir, [&getBranch]{ return getBranch(); });
+	})
+	| std::views::filter([](const auto& optional){ return optional.has_value(); })
+	| std::views::transform([](const auto& optional) { return *optional; })
+	| std::ranges::to<std::vector<std::string>>();
 }
 
 int main() {
+    auto baseDirs = getBaseDirs(base);
+    auto branches = baseDirs.transform([](auto &baseDirs) {
+      auto branches = getCurrentBranches(baseDirs);
+      for (const auto &branch : branches) {
+	  std::cout << branch << std::endl;
+      }
+      return branches;
+    });
+
+
     
     return 0;
 }
