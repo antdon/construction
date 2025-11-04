@@ -12,14 +12,6 @@ namespace ftx = ftxui;
 // we have an optional config file that specifies
 // directory base name, 3 commands we can run in that directory
 
-auto selectBranch(unsigned int index, std::vector<bool>& selectedState) {
-  if (index >= selectedState.size()) {
-      return;
-  }
-  selectedState = std::vector(selectedState.size(), false);
-  selectedState[index] = true;
-}
-
 int main() {
     auto baseDirs = gitInteraction::getBaseDirs(base);
     auto optionalBranches = baseDirs.transform([](auto &baseDirs) {
@@ -29,25 +21,24 @@ int main() {
 	}
 	return branches;
     });
-    if (!optionalBranches.has_value()) {
+    if (!optionalBranches.has_value() || optionalBranches.value().size() < 1) {
 	std::cerr << "Couldn't find any git repositories that start with that prefix in your home repo" << std::endl;
 	return 1;
     }
     auto branches = optionalBranches.value();
-    auto branchSelectionState = std::vector(branches.size(), false);
-    selectBranch(0, branchSelectionState);
+    auto selectedBranch = static_cast<size_t>(0);
 
     auto screen = ftx::ScreenInteractive::Fullscreen();
     auto component =
-        ftx::CatchEvent(ftx::Renderer([&branches, &branchSelectionState] {
+        ftx::CatchEvent(ftx::Renderer([&selectedBranch, &branches] {
           auto branchElements =
-	      std::views::iota(0) | std::views::take(branches.size()) |
-              std::views::transform([&branchSelectionState, &branches](const auto index) {
+	      std::views::iota(static_cast<size_t>(0)) | std::views::take(branches.size()) |
+              std::views::transform([&selectedBranch, &branches](const auto index) {
 		  auto element = ftx::text(branches[index]);
-		  if (branchSelectionState[index]) {
+		  if (index == selectedBranch) {
 		      return element | ftx::border;
                   } else {
-		      return element;
+		      return element | ftx::borderEmpty;
                   }
 	      })
 	      | std::ranges::to<std::vector<ftx::Element>>();
@@ -58,6 +49,20 @@ int main() {
 		screen.ExitLoopClosure()();
 		return true;
 	    }
+            if (event == ftx::Event::Character('j')) {
+              if (selectedBranch == branches.size() - 1) {
+		  return false;
+              }
+	      selectedBranch++;
+	      return true;
+            }
+            if (event == ftx::Event::Character('k')) {
+              if (selectedBranch == 0) {
+		  return false;
+              }
+	      selectedBranch--;
+	      return true;
+            }
 	    return false;
 	}
 	);
