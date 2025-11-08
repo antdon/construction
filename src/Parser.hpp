@@ -5,22 +5,29 @@
 #include <tuple>
 
 template <typename T>
-class Success {
+struct Success {
     T data;
     std::string_view remaining;
 };
 
-class Failure {
+template <>
+struct Success<void> {
+    std::string_view remaining;
+    Success() = delete;
+    Success(std::string_view rem): remaining{rem} {}
+};
+
+struct Failure {
     int lineNumber;
     std::string expected;
-    char found;
+    std::string_view remaining;
 };
 
 class Parser {
 
 private:
     // parsers
-    std::variant<Success<void>, Failure> collon(std::string_view input);
+    std::variant<Success<void>, Failure> colon(std::string_view input);
     std::variant<Success<void>, Failure> space(std::string_view input);
     std::variant<Success<char>, Failure> character(std::string_view input);
 
@@ -39,9 +46,12 @@ private:
     template <typename... Parsers>
     auto sequence(Parsers... parsers) -> std::tuple<typename ExtractType<Parsers...>::type>;
 
-
     // grammar components
-    
+    std::variant<Success<void>, Failure> whiteSpace(std::string_view input);
+    std::variant<Success<std::string>, Failure> word(std::string_view input);
 };
+
+
+
 
 
